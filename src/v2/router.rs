@@ -1,33 +1,26 @@
 use super::{Factory, Library};
 use crate::{
-    bindings::i_uniswap_v2_router_02::IUniswapV2Router02,
     constants::BPS_U256,
-    errors::{LibraryError, RouterResult},
+    contracts::bindings::i_uniswap_v2_router_02::IUniswapV2Router02,
+    errors::{Error, Result},
     utils::{is_native_path, map_native},
     Amount,
 };
-use ethers::prelude::{builders::ContractCall, *};
+use ethers_contract::builders::ContractCall;
+use ethers_core::types::{Address, U256};
+use ethers_providers::Middleware;
 use std::sync::Arc;
 
 #[cfg(feature = "addresses")]
 use crate::protocol::ProtocolType;
+#[cfg(feature = "addresses")]
+use ethers_core::types::Chain;
 
-/// Represents a UniswapV2 router.
-#[derive(Clone, Debug)]
-pub struct Router<M>(IUniswapV2Router02<M>);
-
-impl<M> std::ops::Deref for Router<M> {
-    type Target = IUniswapV2Router02<M>;
-
-    fn deref(&self) -> &Self::Target {
-        self.contract()
-    }
-}
-
-impl<M> Router<M> {
-    /// Returns a reference to the router contract.
-    pub fn contract(&self) -> &IUniswapV2Router02<M> {
-        &self.0
+contract_struct! {
+    /// A UniswapV2 router.
+    pub struct Router<M> {
+        /// The router contract.
+        contract: IUniswapV2Router02<M>,
     }
 }
 
@@ -36,7 +29,7 @@ impl<M: Middleware> Router<M> {
     pub fn new(client: Arc<M>, address: Address) -> Self {
         // assert!(protocol.is_v2(), "protocol must be v2");
         let contract = IUniswapV2Router02::new(address, client);
-        Self(contract)
+        Self { contract }
     }
 
     /// Creates a new instance by searching for the required addresses in the [addressbook].
@@ -68,7 +61,7 @@ impl<M: Middleware> Router<M> {
         amount_b_min: U256,
         to: Address,
         deadline: U256,
-    ) -> RouterResult<ContractCall<M, (U256, U256, U256)>, M> {
+    ) -> Result<ContractCall<M, (U256, U256, U256)>> {
         let router = self.contract();
         let (native_a, native_b) = is_native_path(&[token_a, token_b]);
 
@@ -108,7 +101,7 @@ impl<M: Middleware> Router<M> {
                 to,
                 deadline,
             ),
-            (true, true) => return Err(LibraryError::IdenticalAddresses.into()),
+            (true, true) => return Err(Error::IdenticalAddresses),
         };
 
         Ok(call)
@@ -133,7 +126,7 @@ impl<M: Middleware> Router<M> {
         amount_b_min: U256,
         to: Address,
         deadline: U256,
-    ) -> RouterResult<ContractCall<M, (U256, U256)>, M> {
+    ) -> Result<ContractCall<M, (U256, U256)>> {
         let router = self.contract();
         let (native_a, native_b) = is_native_path(&[token_a, token_b]);
 
@@ -164,7 +157,7 @@ impl<M: Middleware> Router<M> {
                 to,
                 deadline,
             ),
-            (true, true) => return Err(LibraryError::IdenticalAddresses.into()),
+            (true, true) => return Err(Error::IdenticalAddresses),
         };
 
         Ok(call)
@@ -189,10 +182,11 @@ impl<M: Middleware> Router<M> {
         to: Address,
         deadline: U256,
         weth: Address,
-    ) -> RouterResult<ContractCall<M, Vec<U256>>, M> {
+    ) -> Result<ContractCall<M, Vec<U256>>> {
         let router = self.contract();
         let (from_native, to_native) = is_native_path(path);
-        let path = map_native(path, weth);
+        let mut path = path.to_vec();
+        map_native(&mut path, weth);
         let call = match amount {
             Amount::ExactIn(amount_in) => {
                 let amount_out_min = if slippage_tolerance == 100.0 {
@@ -247,7 +241,7 @@ impl<M: Middleware> Router<M> {
                 if from_native {
                     router
                         .swap_eth_for_exact_tokens(amount_out, path, to, deadline)
-                        .value(amount_out)
+                        .value(amount_in_max)
                 } else if to_native {
                     router.swap_tokens_for_exact_eth(amount_out, amount_in_max, path, to, deadline)
                 } else {

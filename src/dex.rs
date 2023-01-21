@@ -1,22 +1,37 @@
 use crate::{
-    bindings::iweth::IWETH,
-    constants::*,
-    errors::{DexError, DexResult, LibraryError},
+    contracts::bindings::iweth::IWETH,
+    errors::{Error, Result},
     utils::*,
-    v2::{Factory, Pair, Router},
+    v2::Pair,
     Amount, Protocol, ProtocolType,
 };
-use ethers::prelude::{builders::ContractCall, *};
-use std::sync::Arc;
+use ethers_contract::builders::ContractCall;
+use ethers_core::types::{Address, U256};
+use ethers_providers::Middleware;
+use std::{fmt, sync::Arc};
+
+#[cfg(feature = "addresses")]
+use ethers_core::types::Chain;
 
 /// Aggregates common methods to interact with the Uniswap v2 or v3 protocols and other utilities.
-#[derive(Clone, Debug)]
 pub struct Dex<M> {
     /// The protocol.
     protocol: Protocol<M>,
 
     /// The address of the chain's wrapped native token.
     weth: Option<Address>,
+}
+
+impl<M> Clone for Dex<M> {
+    fn clone(&self) -> Self {
+        Self { protocol: self.protocol.clone(), weth: self.weth }
+    }
+}
+
+impl<M> fmt::Debug for Dex<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Dex").field("protocol", &self.protocol).field("weth", &self.weth).finish()
+    }
 }
 
 impl<M: Middleware> Dex<M> {
@@ -49,9 +64,9 @@ impl<M: Middleware> Dex<M> {
 
     /* ----------------------------------------- Factory ---------------------------------------- */
 
-    /// Returns the factory.
-    pub fn factory(&self) -> &Factory<M> {
-        self.protocol.factory()
+    /// The factory's address.
+    pub fn factory_address(&self) -> Address {
+        self.protocol.router_address()
     }
 
     /// Returns the contract call for creating a liquidity pair between two tokens.
@@ -60,19 +75,19 @@ impl<M: Middleware> Dex<M> {
     }
 
     /// Returns the pair for two token addresses.
-    pub fn pair_for(&self, token_a: Address, token_b: Address) -> DexResult<Pair<M>, M> {
-        Ok(self.protocol.pair_for(token_a, token_b)?)
+    pub fn pair_for(&self, token_a: Address, token_b: Address) -> Pair<M> {
+        self.protocol.pair_for(token_a, token_b)
     }
 
     /* ----------------------------------------- Router ----------------------------------------- */
 
-    /// Returns the router.
-    pub fn router(&self) -> &Router<M> {
-        self.protocol.router()
+    /// The router's address.
+    pub fn router_address(&self) -> Address {
+        self.protocol.router_address()
     }
 
     /// Returns the contract call for adding liquidity to a pair.
-    pub async fn add_liquidity(
+    pub fn add_liquidity(
         &self,
         token_a: Address,
         token_b: Address,
@@ -82,27 +97,24 @@ impl<M: Middleware> Dex<M> {
         amount_b_min: U256,
         to: Option<Address>,
         deadline: Option<u64>,
-    ) -> DexResult<ContractCall<M, (U256, U256, U256)>, M> {
+    ) -> Result<ContractCall<M, (U256, U256, U256)>> {
         let sender = self.client().default_sender();
         let to = self.get_to(to);
 
-        let deadline = unwrap_deadline(deadline);
+        let deadline = get_deadline_opt(deadline);
 
         // TODO: Maths
 
-        let mut call = self
-            .protocol
-            .add_liquidity(
-                token_a,
-                token_b,
-                amount_a_desired,
-                amount_b_desired,
-                amount_a_min,
-                amount_b_min,
-                to,
-                deadline,
-            )
-            .await?;
+        let mut call = self.protocol.add_liquidity(
+            token_a,
+            token_b,
+            amount_a_desired,
+            amount_b_desired,
+            amount_a_min,
+            amount_b_min,
+            to,
+            deadline,
+        )?;
 
         if let Some(from) = sender {
             call = call.from(from);
@@ -112,7 +124,7 @@ impl<M: Middleware> Dex<M> {
     }
 
     /// Returns the contract call for removing liquidity from a pair.
-    pub async fn remove_liquidity(
+    pub fn remove_liquidity(
         &self,
         token_a: Address,
         token_b: Address,
@@ -121,18 +133,23 @@ impl<M: Middleware> Dex<M> {
         amount_b_min: U256,
         to: Option<Address>,
         deadline: Option<u64>,
-    ) -> DexResult<ContractCall<M, (U256, U256)>, M> {
-        let deadline = unwrap_deadline(deadline);
+    ) -> Result<ContractCall<M, (U256, U256)>> {
+        let deadline = get_deadline_opt(deadline);
 
         let sender = self.client().default_sender();
         let to = self.get_to(to);
 
         // TODO: Maths
 
-        let mut call = self
-            .protocol
-            .remove_liquidity(token_a, token_b, liquidity, amount_a_min, amount_b_min, to, deadline)
-            .await?;
+        let mut call = self.protocol.remove_liquidity(
+            token_a,
+            token_b,
+            liquidity,
+            amount_a_min,
+            amount_b_min,
+            to,
+            deadline,
+        )?;
 
         if let Some(from) = sender {
             call = call.from(from);
@@ -168,16 +185,16 @@ impl<M: Middleware> Dex<M> {
         path: &[Address],
         to: Option<Address>,
         deadline: Option<u64>,
-    ) -> DexResult<ContractCall<M, Vec<U256>>, M> {
+    ) -> Result<ContractCall<M, Vec<U256>>> {
         if !(0.0..=100.0).contains(&slippage_tolerance) {
-            return Err(DexError::InvalidSlippage)
+            return Err(Error::InvalidSlippage);
         }
 
         let sender = self.client().default_sender();
         let to = self.get_to(to);
 
         if path.len() < 2 {
-            return Err(LibraryError::InvalidPath.into())
+            return Err(Error::InvalidPath);
         }
 
         // set weth
@@ -190,10 +207,10 @@ impl<M: Middleware> Dex<M> {
         };
 
         if path_eq(path, &weth) {
-            return Err(DexError::SwapToSelf)
+            return Err(Error::SwapToSelf);
         }
 
-        let deadline = unwrap_deadline(deadline);
+        let deadline = get_deadline_opt(deadline);
 
         let mut call =
             self.protocol.swap(amount, slippage_tolerance, path, to, deadline, weth).await?;
@@ -212,9 +229,17 @@ impl<M: Middleware> Dex<M> {
         self.weth
     }
 
-    /// Sets the wrapped native token address by calling the WETH() method on the router.
-    pub async fn set_weth(&mut self) -> DexResult<&mut Self, M> {
-        self.weth = Some(self.protocol.router().contract().weth().call().await?);
+    /// Sets the wrapped native token address by calling the WETH() method on the V2 router.
+    ///
+    /// Note that this does nothing on a V3 protocol.
+    pub async fn set_weth(&mut self) -> Result<&mut Self> {
+        match &self.protocol {
+            Protocol::V2(v2) => {
+                let weth = v2.router().contract().weth().call().await?;
+                self.weth = Some(weth);
+            }
+            Protocol::V3 => {}
+        };
 
         Ok(self)
     }
@@ -227,10 +252,10 @@ impl<M: Middleware> Dex<M> {
     }
 
     /// Returns the contract call for `weth.deposit{ value: amount }()`.
-    pub fn weth_deposit(&self, amount: U256) -> DexResult<ContractCall<M, ()>, M> {
+    pub fn weth_deposit(&self, amount: U256) -> Result<ContractCall<M, ()>> {
         let address = match self.weth {
             Some(address) => address,
-            None => return Err(DexError::WethNotSet),
+            None => return Err(Error::WethNotSet),
         };
         let client = self.client();
         let sender = client.default_sender();
@@ -245,10 +270,10 @@ impl<M: Middleware> Dex<M> {
     }
 
     /// Returns the contract call for `weth.withdraw(amount)`.
-    pub fn weth_withdraw(&self, amount: U256) -> DexResult<ContractCall<M, ()>, M> {
+    pub fn weth_withdraw(&self, amount: U256) -> Result<ContractCall<M, ()>> {
         let address = match self.weth {
             Some(address) => address,
-            None => return Err(DexError::WethNotSet),
+            None => return Err(Error::WethNotSet),
         };
         let client = self.client();
         let sender = client.default_sender();
@@ -278,7 +303,7 @@ fn path_eq(path: &[Address], weth: &Address) -> bool {
     let last = path.last().expect("path is empty");
 
     if first == last {
-        return true
+        return true;
     }
 
     let fin = is_native(first);
@@ -289,19 +314,18 @@ fn path_eq(path: &[Address], weth: &Address) -> bool {
     (fin && liw) || (lin && fiw)
 }
 
-/// now() + deadline > DEFAULT_DEADLINE_SECONDS
-fn unwrap_deadline(deadline: Option<u64>) -> U256 {
-    let now = now().as_secs();
-    let deadline = now + deadline.unwrap_or(DEFAULT_DEADLINE_SECONDS);
-    U256::from(deadline)
-}
-
 #[cfg(test)]
+#[allow(unused)]
 mod tests {
-    use crate::v2::Library as V2Library;
-    use ethers::abi::{ParamType, Token, Tokenize};
-
     use super::*;
+    use crate::{constants::*, v2::Library as V2Library};
+    use ethers_core::{
+        abi::{self, ParamType, Token, Tokenize},
+        types::{Bytes, I256},
+    };
+    use ethers_middleware::SignerMiddleware;
+    use ethers_providers::{Http, Provider, MAINNET};
+    use ethers_signers::LocalWallet;
 
     fn assert_approx_eq<A: Into<U256>, B: Into<U256>, C: Into<U256>>(a: A, b: B, c: C) {
         let a = I256::from_raw(a.into());
@@ -309,7 +333,8 @@ mod tests {
         assert!((a - b).abs() < I256::from_raw(c.into()));
     }
 
-    fn default_dex() -> Dex<SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>> {
+    #[cfg(feature = "addresses")]
+    fn default_dex() -> Dex<SignerMiddleware<Provider<Http>, LocalWallet>> {
         let provider: Provider<Http> = MAINNET.provider();
         let signer: LocalWallet =
             "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80".parse().unwrap();
@@ -335,7 +360,6 @@ mod tests {
         .unwrap()
     }
 
-    #[allow(unused)]
     fn decode_call_with_value(calldata: &Bytes) -> Vec<Token> {
         abi::decode(
             &[
@@ -372,6 +396,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "async test"]
+    #[cfg(feature = "addresses")]
     async fn can_swap_infinite_slippage() {
         let mut dex = default_dex();
 
@@ -386,10 +412,10 @@ mod tests {
 
         let calldata = contract_call.calldata().unwrap();
 
-        println!("{}", calldata);
+        println!("{calldata}");
 
         let args = decode_call(&calldata);
-        println!("{:?}", args);
+        println!("{args:?}");
 
         let amount_in = args[0].clone().into_uint().unwrap();
         let amount_out_min = args[1].clone().into_uint().unwrap();
@@ -413,6 +439,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "async test"]
+    #[cfg(feature = "addresses")]
     async fn can_swap_no_slippage() {
         let mut dex = default_dex();
 
@@ -421,8 +449,13 @@ mod tests {
         let path_pre =
             vec![dex.weth.unwrap(), "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".parse().unwrap()];
 
-        let amounts_out: Vec<U256> =
-            V2Library::get_amounts_out(dex.factory(), amount_in_pre, &path_pre).await.unwrap();
+        let amounts_out = V2Library::get_amounts_out(
+            dex.protocol().as_v2().unwrap().factory(),
+            amount_in_pre,
+            &path_pre,
+        )
+        .await
+        .unwrap();
 
         let contract_call = dex.swap(amount, 0.0, &path_pre, None, None).await.unwrap();
 
@@ -437,6 +470,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "async test"]
+    #[cfg(feature = "addresses")]
     async fn can_swap_slippage() {
         let mut dex = default_dex();
 
@@ -444,8 +479,13 @@ mod tests {
         let path_pre =
             vec![dex.weth.unwrap(), "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48".parse().unwrap()];
 
-        let amounts_out =
-            V2Library::get_amounts_out(dex.factory(), amount_in_pre, &path_pre).await.unwrap();
+        let amounts_out = V2Library::get_amounts_out(
+            dex.protocol().as_v2().unwrap().factory(),
+            amount_in_pre,
+            &path_pre,
+        )
+        .await
+        .unwrap();
 
         let amount = Amount::ExactIn(amount_in_pre);
         for i in 2..=10 {

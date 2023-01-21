@@ -1,6 +1,6 @@
 [package]
 name = "uniswap-rs"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.62"
 authors = ["DaniPopes <danipopes1@proton.me>"]
@@ -10,34 +10,45 @@ repository = "https://github.com/danipopes/uniswap-rs"
 homepage = "https://docs.rs/uniswap-rs"
 description = "Unofficial Rust SDK library for Uniswap smart contracts."
 keywords = ["dex", "uniswap", "sdk", "ethereum", "eth"]
+exclude = [".github/", "abi/", "examples/", "scripts/", "build.rs"]
 
 [build-dependencies]
-ethers-contract = "1.0"
+ethers-contract-abigen = { version = "1.0", default-features = false }
+eyre = ">=0"
+walkdir = ">=2"
 
 [dependencies]
-ethers = "1.0.2"
+ethers-core = "1.0"
+ethers-contract = "1.0"
+ethers-providers = "1.0"
 thiserror = "1.0"
 
 serde = { version = "1.0", optional = true }
 serde_json = { version = "1.0", optional = true }
 
 [dev-dependencies]
+ethers-middleware = "1.0"
+ethers-signers = "1.0"
 tokio = { version = "1", features = ["macros"] }
-eyre = "0.6"
+# eyre = "0.6"
 
 [features]
 default = ["addresses"]
+
 serde = ["dep:serde"]
 addresses = ["serde", "serde_json"]
 
-# [patch."https://github.com/gakonst/ethers-rs"]
-# ethers = { git = "https://github.com/danipopes/ethers-rs" }
-# ethers-contract = { git = "https://github.com/danipopes/ethers-rs" }
+[workspace]
+members = [".", "examples"]
 
+# [patch.crates-io]
 # ethers = { path = "../ethers-rs" }
+# ethers-addressbook = { path = "../ethers-rs/ethers-addressbook" }
 # ethers-contract = { path = "../ethers-rs/ethers-contract" }
+# ethers-contract-abigen = { path = "../ethers-rs/ethers-contract/ethers-contract-abigen" }
 # ethers-core = { path = "../ethers-rs/ethers-core" }
+# ethers-etherscan = { path = "../ethers-rs/ethers-etherscan" }
+# ethers-middleware = { path = "../ethers-rs/ethers-middleware" }
 # ethers-providers = { path = "../ethers-rs/ethers-providers" }
 # ethers-signers = { path = "../ethers-rs/ethers-signers" }
-# ethers-etherscan = { path = "../ethers-rs/ethers-etherscan" }
 # ethers-solc = { path = "../ethers-rs/ethers-solc" }
