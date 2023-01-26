@@ -1,45 +1,25 @@
+use crate::{
+    errors::{FactoryResult, RouterError},
+    v2::{Factory as V2Factory, Pair as V2Pair, Protocol as V2Protocol, Router as V2Router},
+    Amount,
+};
+use ethers::prelude::{builders::ContractCall, *};
+use std::sync::Arc;
+
 pub mod pair_code_hashes;
 
 mod protocol_type;
 pub use protocol_type::*;
 
-use crate::{
-    errors::Result,
-    v2::{Pair as V2Pair, Protocol as V2Protocol},
-    Amount,
-};
-use ethers_contract::builders::ContractCall;
-use ethers_core::types::{Address, Chain, H256, U256};
-use ethers_providers::Middleware;
-use std::{fmt, sync::Arc};
-
-/// An Uniswap V2 or V3 protocol.
-///
-/// For Universal Router, see [UniversalRouter][crate::universal_router::UniversalRouter].
+/// Represents an automated market maker, a protocol that facilitates peer-to-peer market making and
+/// swapping of ERC-20 tokens on the Ethereum blockchain.
+#[derive(Clone, Debug)]
 pub enum Protocol<M> {
-    /// A Uniswap V2 protocol.
+    /// The UniswapV2 protocol.
     V2(V2Protocol<M>),
 
-    /// A Uniswap V3 protocol. Work in progress.
+    /// The UniswapV3 protocol. WIP.
     V3,
-}
-
-impl<M> Clone for Protocol<M> {
-    fn clone(&self) -> Self {
-        match self {
-            Self::V2(v2) => Self::V2(v2.clone()),
-            Self::V3 => Self::V3,
-        }
-    }
-}
-
-impl<M> fmt::Debug for Protocol<M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::V2(v2) => f.debug_tuple("V2").field(&v2).finish(),
-            Self::V3 => f.pad("V3"),
-        }
-    }
 }
 
 impl<M: Middleware> Protocol<M> {
@@ -47,8 +27,8 @@ impl<M: Middleware> Protocol<M> {
     pub fn new(client: Arc<M>, factory: Address, router: Address, protocol: ProtocolType) -> Self {
         match protocol {
             p if p.is_v2() => Self::V2(V2Protocol::new(client, factory, router, protocol)),
-            p if p.is_v3() => todo_v3(),
-            _ => unreachable!(),
+            p if p.is_v3() => todo!("v3 is not yet implemented"),
+            p => unreachable!("protocol \"{p:?}\" is neither v2 nor v3"),
         }
     }
 
@@ -59,8 +39,8 @@ impl<M: Middleware> Protocol<M> {
     pub fn new_with_chain(client: Arc<M>, chain: Chain, protocol: ProtocolType) -> Option<Self> {
         match protocol {
             p if p.is_v2() => V2Protocol::new_with_chain(client, chain, protocol).map(Self::V2),
-            p if p.is_v3() => todo_v3(),
-            _ => unreachable!(),
+            p if p.is_v3() => todo!("v3 is not yet implemented"),
+            p => unreachable!("protocol \"{p:?}\" is neither v2 nor v3"),
         }
     }
 
@@ -69,110 +49,62 @@ impl<M: Middleware> Protocol<M> {
     pub fn client(&self) -> Arc<M> {
         match self {
             Self::V2(p) => p.client(),
-            Self::V3 => todo_v3(),
-        }
-    }
-
-    /// Returns a reference to the wrapped [V2Protocol].
-    pub fn as_v2(&self) -> Option<&V2Protocol<M>> {
-        match self {
-            Self::V2(v2) => Some(v2),
-            Self::V3 => None,
-        }
-    }
-
-    /// Returns a mutable reference to the wrapped [V2Protocol].
-    pub fn as_v2_mut(&mut self) -> Option<&mut V2Protocol<M>> {
-        match self {
-            Self::V2(v2) => Some(v2),
-            Self::V3 => None,
-        }
-    }
-
-    /// Returns the wrapped [V2Protocol].
-    pub fn into_v2(self) -> Option<V2Protocol<M>> {
-        match self {
-            Self::V2(v2) => Some(v2),
-            Self::V3 => None,
-        }
-    }
-
-    /// Returns a reference to the wrapped V3Protocol.
-    pub fn as_v3(&self) -> Option<()> {
-        match self {
-            Self::V2(_) => None,
-            Self::V3 => Some(()),
-        }
-    }
-
-    /// Returns a mutable reference to the wrapped V3Protocol.
-    pub fn as_v3_mut(&mut self) -> Option<()> {
-        match self {
-            Self::V2(_) => None,
-            Self::V3 => Some(()),
-        }
-    }
-
-    /// Returns the wrapped V3Protocol.
-    pub fn into_v3(self) -> Option<()> {
-        match self {
-            Self::V2(_) => None,
-            Self::V3 => Some(()),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
     /* ----------------------------------------- Factory ---------------------------------------- */
 
-    /// The factory's address.
+    /// Returns a reference to the factory.
     #[inline(always)]
-    pub fn factory_address(&self) -> Address {
+    pub fn factory(&self) -> &V2Factory<M> {
         match self {
-            Self::V2(p) => p.factory().address(),
-            Self::V3 => todo_v3(),
+            Self::V2(p) => p.factory(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
-    /// The factory's `pair_codehash` method.
+    /// The protocol's `pair_codehash` method.
     #[inline(always)]
     pub fn pair_codehash(&self, chain: Option<Chain>) -> H256 {
         match self {
             Self::V2(p) => p.pair_codehash(chain),
-            Self::V3 => todo_v3(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
-    /// The factory's `create_pair` method.
+    /// The protocol's `create_pair` method.
     #[inline(always)]
     pub fn create_pair(&self, token_a: Address, token_b: Address) -> ContractCall<M, Address> {
         match self {
             Self::V2(p) => p.create_pair(token_a, token_b),
-            Self::V3 => todo_v3(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
-    /// The factory's `pair_for` method.
+    /// The protocol's `pair_for` method.
     #[inline(always)]
-    pub fn pair_for(&self, token_a: Address, token_b: Address) -> V2Pair<M> {
+    pub fn pair_for(&self, token_a: Address, token_b: Address) -> FactoryResult<V2Pair<M>, M> {
         match self {
             Self::V2(p) => p.pair_for(token_a, token_b),
-            Self::V3 => todo_v3(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
     /* ----------------------------------------- Router ----------------------------------------- */
 
-    /// The router's address.
+    /// Returns a reference to the router.
     #[inline(always)]
-    pub fn router_address(&self) -> Address {
+    pub fn router(&self) -> &V2Router<M> {
         match self {
-            Self::V2(p) => p.router().address(),
-            Self::V3 => todo_v3(),
+            Self::V2(p) => p.router(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
-    /// The router's `add_liquidity` method.
+    /// The protocol's `add_liquidity` method.
     #[inline(always)]
-    pub fn add_liquidity(
+    pub async fn add_liquidity(
         &self,
         token_a: Address,
         token_b: Address,
@@ -182,7 +114,7 @@ impl<M: Middleware> Protocol<M> {
         amount_b_min: U256,
         to: Address,
         deadline: U256,
-    ) -> Result<ContractCall<M, (U256, U256, U256)>> {
+    ) -> Result<ContractCall<M, (U256, U256, U256)>, RouterError<M>> {
         match self {
             Self::V2(p) => p.add_liquidity(
                 token_a,
@@ -194,13 +126,13 @@ impl<M: Middleware> Protocol<M> {
                 to,
                 deadline,
             ),
-            Self::V3 => todo_v3(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
-    /// The router's `remove_liquidity` method.
+    /// The protocol's `remove_liquidity` method.
     #[inline(always)]
-    pub fn remove_liquidity(
+    pub async fn remove_liquidity(
         &self,
         token_a: Address,
         token_b: Address,
@@ -209,7 +141,7 @@ impl<M: Middleware> Protocol<M> {
         amount_b_min: U256,
         to: Address,
         deadline: U256,
-    ) -> Result<ContractCall<M, (U256, U256)>> {
+    ) -> Result<ContractCall<M, (U256, U256)>, RouterError<M>> {
         match self {
             Self::V2(p) => p.remove_liquidity(
                 token_a,
@@ -220,11 +152,11 @@ impl<M: Middleware> Protocol<M> {
                 to,
                 deadline,
             ),
-            Self::V3 => todo_v3(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
 
-    /// The router's `swap` method.
+    /// The protocol's `swap` method.
     #[inline(always)]
     pub async fn swap(
         &self,
@@ -234,14 +166,10 @@ impl<M: Middleware> Protocol<M> {
         to: Address,
         deadline: U256,
         weth: Address,
-    ) -> Result<ContractCall<M, Vec<U256>>> {
+    ) -> Result<ContractCall<M, Vec<U256>>, RouterError<M>> {
         match self {
             Self::V2(p) => p.swap(amount, slippage_tolerance, path, to, deadline, weth).await,
-            Self::V3 => todo_v3(),
+            Self::V3 => todo!("v3 is not yet implemented"),
         }
     }
-}
-
-fn todo_v3() -> ! {
-    todo!("v3 is not yet implemented")
 }

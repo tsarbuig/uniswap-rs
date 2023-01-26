@@ -1,9 +1,9 @@
-use_small_heuristics = "Max"
-use_field_init_shorthand = true
-
-# unstable
+reorder_imports = true
 imports_granularity = "Crate"
-wrap_comments = true
+use_small_heuristics = "Max"
 comment_width = 100
-# TODO: enable on next ethers release
-# ignore = ["src/contracts/bindings"]
+wrap_comments = true
+binop_separator = "Back"
+trailing_comma = "Vertical"
+trailing_semicolon = false
+use_field_init_shorthand = true
