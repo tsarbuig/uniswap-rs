@@ -1,11 +1,11 @@
 use super::pair_code_hashes::*;
-use ethers_core::types::{Address, Chain, H256};
+use ethers::prelude::*;
 use std::fmt;
 
 #[cfg(feature = "addresses")]
 use crate::contracts::addresses::{address, try_address};
 
-/// A type of protocol that is, or is a fork of, Uniswap V2 or V3.
+/// Represents a type of protocol that is, or is a fork of, Uniswap v2 or v3.
 #[derive(Clone, Copy, Debug, Default, Hash, PartialEq, Eq)]
 #[cfg_attr(
     feature = "serde",
@@ -62,7 +62,7 @@ impl fmt::Display for ProtocolType {
 
 impl ProtocolType {
     /// Instantiates a new custom protocol type.
-    pub const fn new(factory: Address, router: Address, is_v2: bool, pair_code_hash: H256) -> Self {
+    pub fn new(factory: Address, router: Address, is_v2: bool, pair_code_hash: H256) -> Self {
         Self::Custom { factory, router, is_v2, pair_code_hash }
     }
 
@@ -113,7 +113,7 @@ impl ProtocolType {
     ///
     /// Note: `chain` is used only when the pair code hash differs in the same protocol, for example
     /// `Pancakeswap` has two different code hashes for BSC mainnet and testnet.
-    pub const fn pair_code_hash(&self, chain: Option<Chain>) -> H256 {
+    pub fn pair_code_hash(&self, chain: Option<Chain>) -> H256 {
         use ProtocolType::*;
         match self {
             UniswapV2 => UNISWAP_V2_PAIR_CODE_HASH,
@@ -122,27 +122,27 @@ impl ProtocolType {
             Pancakeswap => chain_or(
                 chain,
                 Chain::BinanceSmartChainTestnet,
-                PANCAKESWAP_TESTNET_PAIR_CODE_HASH,
                 PANCAKESWAP_PAIR_CODE_HASH,
+                PANCAKESWAP_TESTNET_PAIR_CODE_HASH,
             ),
             Quickswap => QUICKSWAP_PAIR_CODE_HASH,
             Spookyswap => chain_or(
                 chain,
                 Chain::FantomTestnet,
-                SPOOKYSWAP_TESTNET_PAIR_CODE_HASH,
                 SPOOKYSWAP_PAIR_CODE_HASH,
+                SPOOKYSWAP_TESTNET_PAIR_CODE_HASH,
             ),
             Traderjoe => chain_or(
                 chain,
                 Chain::AvalancheFuji,
-                TRADERJOE_TESTNET_PAIR_CODE_HASH,
                 TRADERJOE_PAIR_CODE_HASH,
+                TRADERJOE_TESTNET_PAIR_CODE_HASH,
             ),
             Custom { pair_code_hash, .. } => *pair_code_hash,
         }
     }
 
-    /// Returns whether the protocol is, or is a fork of, Uniswap V2.
+    /// Returns whether the protocol is, or is a fork of, UniswapV2.
     pub const fn is_v2(&self) -> bool {
         use ProtocolType::*;
         match self {
@@ -152,24 +152,23 @@ impl ProtocolType {
         }
     }
 
-    /// Returns whether the protocol is, or is a fork of, Uniswap V3.
+    /// Returns whether the protocol is, or is a fork of, UniswapV3.
     pub const fn is_v3(&self) -> bool {
         !self.is_v2()
     }
 }
 
-/// if c1 == c2 { hash } else { default }
-const fn chain_or(c1: Option<Chain>, c2: Chain, hash: H256, default: H256) -> H256 {
+/// if c1 == c2 {h2} else {h1}
+fn chain_or(c1: Option<Chain>, c2: Chain, h1: H256, h2: H256) -> H256 {
     if let Some(c1) = c1 {
-        if c1 as u64 == c2 as u64 {
-            return hash;
+        if c1 == c2 {
+            return h2
         }
     }
-    default
+    h1
 }
 
 #[cfg(test)]
-#[allow(unused)]
 mod tests {
     use super::*;
     use Chain::*;
@@ -192,7 +191,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "addresses")]
     fn test_addresses() {
         let protocols = ProtocolType::all();
 

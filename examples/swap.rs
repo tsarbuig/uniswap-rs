@@ -36,7 +36,7 @@ async fn main() -> eyre::Result<()> {
     // specify native ETH by using NATIVE_ADDRESS or Address::repeat_byte(0xee)
     let eth = NATIVE_ADDRESS;
     let path = [eth, usdc];
-    println!("Path:   {path:?}");
+    println!("Path:   {:?}", path);
 
     // create the swap transaction
     let swap_call = dex.swap(amount, 0.5, &path, None, None).await?;
@@ -51,7 +51,7 @@ async fn main() -> eyre::Result<()> {
     let pending_tx = swap_call.send().await?;
     println!("Transaction sent successfully, awaiting inclusion...");
     let receipt = pending_tx.await?.expect("swap transaction was dropped from mempool");
-    println!("Swap successful. Receipt: {receipt:#?}");
+    println!("Swap successful. Receipt: {:#?}", receipt);
 
     Ok(())
 }

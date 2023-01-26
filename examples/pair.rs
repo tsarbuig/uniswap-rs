@@ -17,7 +17,7 @@ async fn main() -> eyre::Result<()> {
 
     println!("Getting ETH/USDC pair info:");
     let dex = Dex::new_with_chain(client, chain, protocol).unwrap();
-    let mut pair = dex.pair_for(weth, usdc);
+    let mut pair = dex.pair_for(weth, usdc)?;
 
     pair.sync(true, true).await?;
 
@@ -31,8 +31,8 @@ async fn main() -> eyre::Result<()> {
 
     let price = usdc_reserve / eth_reserve;
 
-    println!("{pair}");
-    println!("Price: ${price:.2}");
+    println!("{}", pair);
+    println!("Price: ${:.2}", price);
 
     Ok(())
 }

@@ -22,12 +22,6 @@ Add this to your Cargo.toml:
 uniswap-rs = { git = "https://github.com/danipopes/uniswap-rs" }
 ```
 
-And this to your code:
-
-```rust
-use uniswap_rs::prelude::*;
-```
-
 ## Examples
 
 Examples can be found [here][examples].
@@ -36,27 +30,23 @@ Examples can be found [here][examples].
 
 ## Roadmap
 
--   [ ] [UniswapV2 protocol](https://docs.uniswap.org/contracts/v2/overview)
+-   [ ] UniswapV2 protocol
     -   [x] Implementation
     -   [x] Documentation
     -   [ ] Tests
--   [ ] [UniswapV3 protocol](https://docs.uniswap.org/contracts/v3/overview)
+-   [ ] UniswapV3 protocol
     -   [ ] Implementation
     -   [ ] Documentation
     -   [ ] Tests
--   [ ] [UniversalRouter](https://docs.uniswap.org/contracts/universal-router/overview)
-    -   [x] Implementation
-    -   [x] Documentation
-    -   [ ] Tests
--   [x] [Contract addresses](src/contracts/addresses.json)
-    -   [x] Uniswap
+-   [x] Contract addresses
+    -   [x] Uniswap v2 and v3
     -   [x] Sushiswap
     -   [x] Pancakeswap
     -   [x] Quickswap
     -   [x] Spookyswap
     -   [x] Traderjoe
 -   [ ] Features
-    -   [x] Serde, Addressbook and `new_with_chain`
+    -   [ ] Serde, Addressbook and `new_with_chain`
     -   [ ] V2 and V3, separated
 
 ## License

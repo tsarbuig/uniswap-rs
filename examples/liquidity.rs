@@ -30,31 +30,32 @@ async fn main() -> eyre::Result<()> {
     // instantiate a new dex
     let dex = Dex::new_with_chain(client.clone(), chain, protocol).unwrap();
 
-    let pair = dex.pair_for(weth, usdc);
+    let pair = dex.pair_for(weth, usdc)?;
 
     // liquidity amount
     let liquidity = U256::exp10(9);
 
     println!("Checking approval...");
-    let router_address = dex.router_address();
+    let router_address = dex.router().address();
     let allowance = pair.contract().allowance(client.address(), router_address).call().await?;
     if allowance < liquidity {
         // approve the pair
         println!("Approving for removal...");
-        let call = pair.contract().approve(router_address, liquidity);
+        let call = pair.contract().approve(dex.router().address(), liquidity);
         let receipt = send(call).await?;
-        println!("Contract approved successfully! Receipt: {receipt:#?}");
+        println!("Contract approved successfully! Receipt: {:#?}", receipt);
     } else {
         println!("Already approved, skipping approval");
     }
 
     // create the remove liquidity transaction
-    println!("Removing {liquidity} liquidity...");
-    let call =
-        dex.remove_liquidity(NATIVE_ADDRESS, usdc, liquidity, 0.into(), 0.into(), None, None)?;
-    println!("Sending transaction...");
+    println!("Removing {} liquidity...", liquidity);
+    let call = dex
+        .remove_liquidity(NATIVE_ADDRESS, usdc, liquidity, 0.into(), 0.into(), None, None)
+        .await?;
+    println!("Sending swap...");
     let receipt = send(call).await?;
-    println!("Successfully removed {liquidity} liquidity from ETH/USDC. Receipt: {receipt:#?}");
+    println!("Successfully removed {} liquidity from ETH/USDC. Receipt: {:#?}", liquidity, receipt);
 
     Ok(())
 }
@@ -64,5 +65,5 @@ async fn send<M: Middleware + 'static, D: Detokenize>(
 ) -> eyre::Result<TransactionReceipt> {
     let pending_tx = call.send().await?;
     println!("Transaction sent successfully, awaiting inclusion...");
-    pending_tx.await?.wrap_err("transaction was dropped from mempool")
+    pending_tx.await?.wrap_err("swap transaction was dropped from mempool")
 }
