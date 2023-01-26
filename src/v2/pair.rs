@@ -1,66 +1,61 @@
 use super::{Factory, Library};
-use crate::{bindings::i_uniswap_v2_pair::IUniswapV2Pair, errors::PairResult, ProtocolType};
-use ethers::{abi::Token, contract::builders::ContractCall, core::abi::Detokenize, prelude::*};
+use crate::{contracts::bindings::i_uniswap_v2_pair::IUniswapV2Pair, errors::Result, ProtocolType};
+use ethers_contract::{
+    builders::ContractCall, ContractError, Multicall, MulticallError, MulticallVersion,
+};
+use ethers_core::{
+    abi::{Detokenize, Token},
+    types::{Address, Chain, H256},
+};
+use ethers_providers::Middleware;
 use std::{fmt, sync::Arc};
 
 type Tokens = (Address, Address);
 type Reserves = (u128, u128, u32);
 
-/// Represents a UniswapV2 liquidity pair, composed of 2 different ERC20 tokens.
-#[derive(Clone, Debug)]
-pub struct Pair<M> {
-    /// The pair contract.
-    contract: IUniswapV2Pair<M>,
+contract_struct! {
+    /// A UniswapV2 liquidity pair, composed of 2 different ERC20 tokens.
+    pub struct Pair<M> {
+        /// The pair contract.
+        contract: IUniswapV2Pair<M>,
 
-    /// The ordered tokens of the pair.
-    tokens: Option<Tokens>,
+        /// The ordered tokens of the pair.
+        tokens: Option<Tokens>,
 
-    /// Whether the pair is currently deployed in the client's network.
-    deployed: bool,
+        /// Whether the pair is currently deployed in the client's network.
+        deployed: bool,
 
-    /// The token reserves of the pair.
-    reserves: Option<Reserves>,
+        /// The token reserves of the pair.
+        reserves: Option<Reserves>,
 
-    /// The protocol of the pair.
-    protocol: ProtocolType,
+        /// The protocol of the pair.
+        pub protocol: ProtocolType,
+    }
 }
 
 impl<M> fmt::Display for Pair<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let address = self.address();
         if self.tokens.is_none() && self.reserves.is_none() {
-            return writeln!(f, "Pair: {:?}", address)
+            return writeln!(f, "Pair: {address:?}");
         }
-        writeln!(f, "Pair:     {:?}", address)?;
+        writeln!(f, "Pair:     {address:?}")?;
         if let Some((a, b)) = self.tokens {
-            writeln!(f, "Token0:   {:?}", a)?;
-            write!(f, "Token1:   {:?}", b)?;
+            writeln!(f, "Token0:   {a:?}")?;
+            write!(f, "Token1:   {b:?}")?;
             if self.reserves.is_some() {
                 writeln!(f)?
             };
         }
         if let Some((a, b, _)) = self.reserves {
-            writeln!(f, "Reserve0: {:?}", a)?;
-            write!(f, "Reserve1: {:?}", b)?;
+            writeln!(f, "Reserve0: {a:?}")?;
+            write!(f, "Reserve1: {b:?}")?;
         }
         Ok(())
     }
 }
 
-impl<M> std::ops::Deref for Pair<M> {
-    type Target = IUniswapV2Pair<M>;
-
-    fn deref(&self) -> &Self::Target {
-        self.contract()
-    }
-}
-
 impl<M> Pair<M> {
-    /// Returns a reference to the pair contract.
-    pub fn contract(&self) -> &IUniswapV2Pair<M> {
-        &self.contract
-    }
-
     /// Returns whether the pair has been deployed.
     ///
     /// Note: this will always be false before syncing.
@@ -104,9 +99,9 @@ impl<M: Middleware> Pair<M> {
         factory: &Factory<M>,
         token0: Address,
         token1: Address,
-    ) -> PairResult<Self, M> {
-        let (token0, token1) = Library::sort_tokens(token0, token1)?;
-        let address = Library::pair_for(factory, token0, token1)?;
+    ) -> Result<Self> {
+        let (token0, token1) = Library::sort_tokens(token0, token1);
+        let address = Library::pair_for(factory, token0, token1);
         let contract = IUniswapV2Pair::new(address, factory.client());
 
         Ok(Self {
@@ -120,17 +115,13 @@ impl<M: Middleware> Pair<M> {
 
     /// Returns the contract calls for getting the addresses of the pair's tokens.
     pub fn get_tokens(&self) -> (ContractCall<M, Address>, ContractCall<M, Address>) {
-        (self.token_0(), self.token_1())
+        (self.contract.token_0(), self.contract.token_1())
     }
 
     /// Syncs the tokens and reserves of the pair by querying the blockchain.
     ///
     /// Assumes that any call failure means the pair has not been deployed yet.
-    pub async fn sync(
-        &mut self,
-        sync_tokens: bool,
-        sync_reserves: bool,
-    ) -> PairResult<&mut Self, M> {
+    pub async fn sync(&mut self, sync_tokens: bool, sync_reserves: bool) -> Result<&mut Self> {
         // let sync_tokens = self.tokens.is_none() || !self.deployed;
         // let sync_reserves = self.reserves.is_none() || !self.deployed;
 
@@ -144,7 +135,7 @@ impl<M: Middleware> Pair<M> {
         }
 
         if sync_reserves {
-            multicall.add_call(self.get_reserves(), true);
+            multicall.add_call(self.contract.get_reserves(), true);
         }
 
         // Assume any call failure means the contract has not been deployed yet
@@ -154,7 +145,7 @@ impl<M: Middleware> Pair<M> {
             Err(MulticallError::ContractError(ContractError::DecodingError(_))) => {
                 self.tokens = None;
                 self.deployed = false;
-                return Ok(self)
+                return Ok(self);
             }
             Err(e) => return Err(e.into()),
         };
@@ -167,7 +158,7 @@ impl<M: Middleware> Pair<M> {
                 if tokens.is_none() || reserves.is_none() {
                     self.tokens = None;
                     self.deployed = false;
-                    return Ok(self)
+                    return Ok(self);
                 }
 
                 self.deployed = true;
@@ -180,7 +171,7 @@ impl<M: Middleware> Pair<M> {
                 if tokens.is_none() {
                     self.tokens = None;
                     self.deployed = false;
-                    return Ok(self)
+                    return Ok(self);
                 }
 
                 self.deployed = true;
@@ -192,7 +183,7 @@ impl<M: Middleware> Pair<M> {
                 if reserves.is_none() {
                     self.tokens = None;
                     self.deployed = false;
-                    return Ok(self)
+                    return Ok(self);
                 }
 
                 self.deployed = true;
@@ -222,7 +213,7 @@ fn parse_errors(tokens: Vec<Token>) -> Vec<Option<String>> {
 
 /// Parses a multicall result from a vector of tokens, returning None if the call returned an
 /// error.
-fn parse_result<M: Middleware, D: Detokenize>(tokens: Vec<Token>) -> PairResult<Option<D>, M> {
+fn parse_result<D: Detokenize>(tokens: Vec<Token>) -> Result<Option<D>> {
     let res = D::from_tokens(tokens.clone());
     match res {
         Err(e) => {
@@ -230,7 +221,7 @@ fn parse_result<M: Middleware, D: Detokenize>(tokens: Vec<Token>) -> PairResult<
             let errors = parse_errors(tokens);
             if errors.iter().any(|s| s.is_none()) {
                 // Failed to decode errors too
-                Err(ContractError::DetokenizationError(e).into())
+                Err(e.into())
             } else {
                 // All calls failed while allowed
                 Ok(None)
@@ -242,7 +233,7 @@ fn parse_result<M: Middleware, D: Detokenize>(tokens: Vec<Token>) -> PairResult<
 
 /// Parses a multicall result of Pair::get_tokens(), returning None if the call returned an
 /// error.
-fn parse_tokens_result<M: Middleware>(tokens: Vec<Token>) -> PairResult<Option<Tokens>, M> {
+fn parse_tokens_result(tokens: Vec<Token>) -> Result<Option<Tokens>> {
     type TokensResult = ((bool, Address), (bool, Address));
     let res: Option<TokensResult> = parse_result(tokens)?;
 
@@ -260,7 +251,7 @@ fn parse_tokens_result<M: Middleware>(tokens: Vec<Token>) -> PairResult<Option<T
 
 /// Parses a multicall result of Pair::get_reserves(), returning None if the call returned an
 /// error.
-fn parse_reserves_result<M: Middleware>(tokens: Vec<Token>) -> PairResult<Option<Reserves>, M> {
+fn parse_reserves_result(tokens: Vec<Token>) -> Result<Option<Reserves>> {
     type ReservesResult = (bool, Reserves);
     let res: Option<ReservesResult> = parse_result(tokens)?;
 
@@ -279,8 +270,12 @@ fn parse_reserves_result<M: Middleware>(tokens: Vec<Token>) -> PairResult<Option
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused)]
     use crate::ProtocolType;
+    #[allow(unused)]
+    use ethers_providers::{Http, Provider, MAINNET};
 
+    #[cfg(feature = "addresses")]
     fn default_pair() -> Pair<Provider<Http>> {
         let chain = Chain::Mainnet;
         let weth: Address = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".parse().unwrap();
@@ -340,30 +335,32 @@ mod tests {
 
         // parse_result
 
-        let result = parse_result::<Provider<Http>, SuccessResult>(success_tokens.clone()).unwrap();
+        let result = parse_result::<SuccessResult>(success_tokens.clone()).unwrap();
         assert_eq!(result.unwrap(), success_result);
 
-        let result = parse_result::<Provider<Http>, FailureResult>(failure_tokens.clone()).unwrap();
+        let result = parse_result::<FailureResult>(failure_tokens.clone()).unwrap();
         assert_eq!(result.unwrap(), failure_result);
 
         // parse_tokens_result
 
-        let result = parse_tokens_result::<Provider<Http>>(success_tokens[0..2].to_vec()).unwrap();
+        let result = parse_tokens_result(success_tokens[0..2].to_vec()).unwrap();
         assert_eq!(result.unwrap(), addresses);
 
-        let result = parse_tokens_result::<Provider<Http>>(failure_tokens.clone());
+        let result = parse_tokens_result(failure_tokens.clone());
         assert!(result.unwrap().is_none());
 
         // parse_reserves_result
 
-        let result = parse_reserves_result::<Provider<Http>>(success_tokens[2..].to_vec()).unwrap();
+        let result = parse_reserves_result(success_tokens[2..].to_vec()).unwrap();
         assert_eq!(result.unwrap(), reserve_uints);
 
-        let result = parse_reserves_result::<Provider<Http>>(failure_tokens);
+        let result = parse_reserves_result(failure_tokens);
         assert!(result.unwrap().is_none());
     }
 
     #[tokio::test]
+    #[ignore = "async test"]
+    #[cfg(feature = "addresses")]
     async fn test_sync() {
         let mut pair = default_pair();
 

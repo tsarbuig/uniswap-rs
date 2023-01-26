@@ -1,19 +1,32 @@
 use super::{Factory, Pair, Router};
-use crate::{
-    errors::{FactoryResult, RouterResult},
-    Amount, ProtocolType,
-};
-use ethers::prelude::{builders::ContractCall, *};
-use std::sync::Arc;
+use crate::{errors::Result, Amount, ProtocolType};
+use ethers_contract::builders::ContractCall;
+use ethers_core::types::{Address, Chain, H256, U256};
+use ethers_providers::Middleware;
+use std::{fmt, sync::Arc};
 
-/// Represents the UniswapV2 protocol.
-#[derive(Clone, Debug)]
+/// A Uniswap V2 protocol implementation.
 pub struct Protocol<M> {
     /// The liquidity pair factory.
     factory: Factory<M>,
 
     /// The swap router.
     router: Router<M>,
+}
+
+impl<M> Clone for Protocol<M> {
+    fn clone(&self) -> Self {
+        Self { factory: self.factory.clone(), router: self.router.clone() }
+    }
+}
+
+impl<M> fmt::Debug for Protocol<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Protocol")
+            .field("factory", &self.factory)
+            .field("router", &self.router)
+            .finish()
+    }
 }
 
 impl<M: Middleware> Protocol<M> {
@@ -43,9 +56,22 @@ impl<M: Middleware> Protocol<M> {
         self.factory.client()
     }
 
+    /// Returns the protocol's chain.
+    #[inline(always)]
+    pub fn chain(&self) -> Option<Chain> {
+        self.factory.chain()
+    }
+
+    /// Sets the protocol's chain.
+    #[inline(always)]
+    pub fn set_chain(&mut self, chain: Chain) {
+        self.factory.set_chain(chain);
+    }
+
     /* ----------------------------------------- Factory ---------------------------------------- */
 
-    /// Returns the factory.
+    /// Returns a reference to the factory.
+    #[inline(always)]
     pub fn factory(&self) -> &Factory<M> {
         &self.factory
     }
@@ -59,12 +85,12 @@ impl<M: Middleware> Protocol<M> {
     /// The factory's `create_pair` method. See documentation of [Factory] for more details.
     #[inline(always)]
     pub fn create_pair(&self, token_a: Address, token_b: Address) -> ContractCall<M, Address> {
-        self.factory.create_pair(token_a, token_b)
+        self.factory.contract().create_pair(token_a, token_b)
     }
 
     /// The factory's `pair_for` method. See documentation of [Factory] for more details.
     #[inline(always)]
-    pub fn pair_for(&self, token_a: Address, token_b: Address) -> FactoryResult<Pair<M>, M> {
+    pub fn pair_for(&self, token_a: Address, token_b: Address) -> Pair<M> {
         self.factory.pair_for(token_a, token_b)
     }
 
@@ -87,7 +113,7 @@ impl<M: Middleware> Protocol<M> {
         amount_b_min: U256,
         to: Address,
         deadline: U256,
-    ) -> RouterResult<ContractCall<M, (U256, U256, U256)>, M> {
+    ) -> Result<ContractCall<M, (U256, U256, U256)>> {
         self.router.add_liquidity(
             token_a,
             token_b,
@@ -111,7 +137,7 @@ impl<M: Middleware> Protocol<M> {
         amount_b_min: U256,
         to: Address,
         deadline: U256,
-    ) -> RouterResult<ContractCall<M, (U256, U256)>, M> {
+    ) -> Result<ContractCall<M, (U256, U256)>> {
         self.router.remove_liquidity(
             token_a,
             token_b,
@@ -133,7 +159,7 @@ impl<M: Middleware> Protocol<M> {
         to: Address,
         deadline: U256,
         weth: Address,
-    ) -> RouterResult<ContractCall<M, Vec<U256>>, M> {
+    ) -> Result<ContractCall<M, Vec<U256>>> {
         self.router.swap(&self.factory, amount, slippage_tolerance, path, to, deadline, weth).await
     }
 }
