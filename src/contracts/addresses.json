@@ -1,13 +1,15 @@
 {
     "BUSD": {
         "addresses": {
-            "mainnet": "0x4fabb145d64652a948d72533023f6e7a623c7c53"
+            "mainnet": "0x4fabb145d64652a948d72533023f6e7a623c7c53",
+            "binance_smart_chain": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
         }
     },
     "DAI": {
         "addresses": {
             "mainnet": "0x6b175474e89094c44da98b954eedeac495271d0f",
-            "goerli": "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844"
+            "goerli": "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
+            "binance_smart_chain": "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3"
         }
     },
     "USDC": {
@@ -19,7 +21,9 @@
     },
     "USDT": {
         "addresses": {
-            "mainnet": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+            "mainnet": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+            "goerli": "0xe583769738b6dd4E7CAF8451050d1948BE717679",
+            "binance_smart_chain": "0x55d398326f99059fF775485246999027B3197955"
         }
     },
     "ETH": {
