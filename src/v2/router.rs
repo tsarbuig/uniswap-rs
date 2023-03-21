@@ -213,12 +213,12 @@ impl<M: Middleware> Router<M> {
 
                 if from_native {
                     router
-                        .swap_exact_eth_for_tokens(amount_out_min, path, to, deadline)
+                        .swap_exact_eth_for_tokens_supporting_fee_on_transfer_tokens(amount_out_min, path, to, deadline)
                         .value(amount_in)
                 } else if to_native {
                     router.swap_exact_tokens_for_eth(amount_in, amount_out_min, path, to, deadline)
                 } else {
-                    router.swap_exact_tokens_for_tokens(
+                    router.swap_exact_tokens_for_tokens_supporting_fee_on_transfer_tokens(
                         amount_in,
                         amount_out_min,
                         path,
