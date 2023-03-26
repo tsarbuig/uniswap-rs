@@ -196,6 +196,16 @@
             "fantom_testnet": "0xa6AD18C2aC47803E193F75c3677b14BF19B94883"
         }
     },
+    "ShibaFactory": {
+        "addresses": {
+            "mainnet": "0x115934131916C8b277DD010Ee02de363c09d037c"
+        }
+    },
+    "ShibaRouter": {
+        "addresses": {
+            "mainnet": "0x03f7724180AA6b939894B5Ca4314783B0b36b329"
+        }
+    },
     "JoeFactory": {
         "addresses": {
             "avalanche": "0x9Ad6C38BE94206cA50bb0d90783181662f0Cfa10",
