@@ -34,6 +34,10 @@ pub enum ProtocolType {
 
     /// Deployed only on Avalanche and its Fuji testnet.
     Traderjoe,
+    
+    /// Deployed on Ethereum.
+    Shibaswap,
+
 
     /// Custom protocol.
     Custom {
@@ -67,9 +71,9 @@ impl ProtocolType {
     }
 
     /// Returns all of the defined protocols.
-    pub const fn all() -> [Self; 7] {
+    pub const fn all() -> [Self; 8] {
         use ProtocolType::*;
-        [UniswapV2, UniswapV3, Sushiswap, Pancakeswap, Quickswap, Spookyswap, Traderjoe]
+        [UniswapV2, UniswapV3, Sushiswap, Pancakeswap, Quickswap, Spookyswap, Traderjoe, Shibaswap]
     }
 
     /// Returns (factory_address, router_address), returning None if not found.
@@ -105,6 +109,7 @@ impl ProtocolType {
             Quickswap => ("QuickFactory", "QuickRouter"),
             Spookyswap => ("SpookyFactory", "SpookyRouter"),
             Traderjoe => ("JoeFactory", "JoeRouter"),
+            Shibaswap => ("ShibaFactory", "ShibaRouter"),
             Custom { .. } => ("CustomFactory", "CustomRouter"),
         }
     }
@@ -117,6 +122,7 @@ impl ProtocolType {
         use ProtocolType::*;
         match self {
             UniswapV2 => UNISWAP_V2_PAIR_CODE_HASH,
+            Shibaswap => SHIBASWAP_PAIR_CODE_HASH,
             UniswapV3 => UNISWAP_V3_POOL_CODE_HASH,
             Sushiswap => SUSHISWAP_PAIR_CODE_HASH,
             Pancakeswap => chain_or(
@@ -146,7 +152,7 @@ impl ProtocolType {
     pub const fn is_v2(&self) -> bool {
         use ProtocolType::*;
         match self {
-            UniswapV2 | Sushiswap | Pancakeswap | Quickswap | Spookyswap | Traderjoe => true,
+            UniswapV2 | Sushiswap | Pancakeswap | Quickswap | Spookyswap | Traderjoe | Shibaswap => true,
             UniswapV3 => false,
             Custom { is_v2, .. } => *is_v2,
         }
@@ -176,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_versions() {
-        let v2s = [UniswapV2, Sushiswap, Pancakeswap, Quickswap, Spookyswap, Traderjoe];
+        let v2s = [UniswapV2, Sushiswap, Pancakeswap, Quickswap, Spookyswap, Traderjoe, Shibaswap];
         let v3s = [UniswapV3];
 
         for v2 in v2s {
