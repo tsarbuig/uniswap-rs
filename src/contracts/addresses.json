@@ -2,7 +2,8 @@
     "BUSD": {
         "addresses": {
             "mainnet": "0x4fabb145d64652a948d72533023f6e7a623c7c53",
-            "binance_smart_chain": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
+            "binance_smart_chain": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+            "binance_smart_chain_testnet": "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814"
         }
     },
     "DAI": {
@@ -23,7 +24,8 @@
         "addresses": {
             "mainnet": "0xdac17f958d2ee523a2206206994597c13d831ec7",
             "goerli": "0xe583769738b6dd4E7CAF8451050d1948BE717679",
-            "binance_smart_chain": "0x55d398326f99059fF775485246999027B3197955"
+            "binance_smart_chain": "0x55d398326f99059fF775485246999027B3197955",
+            "binance_smart_chain_testnet": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
         }
     },
     "ETH": {
