@@ -343,8 +343,7 @@ pub mod i_uniswap_v2_router_02 {
             path: ::std::vec::Vec<ethers::core::types::Address>,
             to: ethers::core::types::Address,
             deadline: ethers::core::types::U256,
-        ) -> ethers::contract::builders::ContractCall<M, ::std::vec::Vec<ethers::core::types::U256>>
-        {
+        ) -> ethers::contract::builders::ContractCall<M, ()> {
             self.0
                 .method_hash([251, 59, 219, 65], (amount_out, path, to, deadline))
                 .expect("method not found (this should never happen)")
@@ -436,8 +435,7 @@ pub mod i_uniswap_v2_router_02 {
             path: ::std::vec::Vec<ethers::core::types::Address>,
             to: ethers::core::types::Address,
             deadline: ethers::core::types::U256,
-        ) -> ethers::contract::builders::ContractCall<M, ::std::vec::Vec<ethers::core::types::U256>>
-        {
+        ) -> ethers::contract::builders::ContractCall<M, ()> {
             self.0
                 .method_hash([74, 37, 217, 74], (amount_out, amount_in_max, path, to, deadline))
                 .expect("method not found (this should never happen)")
@@ -450,8 +448,7 @@ pub mod i_uniswap_v2_router_02 {
             path: ::std::vec::Vec<ethers::core::types::Address>,
             to: ethers::core::types::Address,
             deadline: ethers::core::types::U256,
-        ) -> ethers::contract::builders::ContractCall<M, ::std::vec::Vec<ethers::core::types::U256>>
-        {
+        ) -> ethers::contract::builders::ContractCall<M, ()> {
             self.0
                 .method_hash([136, 3, 219, 238], (amount_out, amount_in_max, path, to, deadline))
                 .expect("method not found (this should never happen)")
